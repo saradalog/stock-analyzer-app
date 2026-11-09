@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f5c4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="銘柄分析">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>銘柄分析</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--sub:#6b6a66;--line:#e4e2dc;--acc:#1f5c4a;--up:#c0392b;--down:#1f6fb2}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--sub:#9a9891;--line:#2e2d2a;--acc:#6fbf9f;--up:#ff7b6b;--down:#6aaee8}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:15px;line-height:1.5}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:560px;margin:0 auto;padding:0 12px 80px}
+.top{position:sticky;top:0;background:var(--bg);padding:10px 0 6px;z-index:5}
+.search{display:flex;gap:8px;position:relative}
+.search input{flex:1;min-width:0;font-size:17px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.btn{padding:0 14px;border:0;border-radius:10px;background:var(--acc);color:#fff;font-size:15px;font-weight:600}
+.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
+.sugg{position:absolute;left:0;right:0;top:46px;background:var(--card);border:1px solid var(--line);border-radius:10px;max-height:320px;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.sugg div{padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.sugg div:last-child{border:0}
+.sugg span{color:var(--sub);font-size:12px;margin-left:6px}
+.chips{display:flex;gap:6px;margin:8px 0 2px;overflow-x:auto;padding-bottom:2px}
+.chip{flex:none;font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--sub)}
+.chip.fav{border-color:var(--acc);color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.hero{position:relative}
+.hero h1{font-size:20px;margin:0;padding-right:40px}
+.star{position:absolute;right:10px;top:10px;font-size:24px;background:none;border:0;color:var(--sub)}
+.star.on{color:#d4a017}
+.meta{color:var(--sub);font-size:13px}
+.price{font-size:30px;font-weight:700;margin-top:6px}
+.price small{font-size:13px;color:var(--sub);font-weight:400;margin-left:6px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.kpi{text-align:center;padding:6px 0;border-radius:8px;background:var(--bg)}
+.kpi b{display:block;font-size:16px}
+.kpi span{font-size:11px;color:var(--sub)}
+.score{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.score div{padding:8px 4px;border-radius:10px;background:var(--bg);text-align:center}
+.score b{display:block;font-size:13px}
+.score span{font-size:11px;color:var(--sub)}
+.tabs{display:flex;gap:4px;margin-bottom:10px}
+.tab{flex:1;padding:8px 4px;border:0;border-radius:8px;background:transparent;color:var(--sub);font-size:14px;font-weight:600}
+.tab.on{background:var(--card);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+h2{font-size:15px;margin:0 0 8px}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;color:var(--sub);font-weight:400;position:sticky;left:0;background:var(--card)}
+thead th{color:var(--sub);font-weight:400;font-size:12px}
+.scroll{overflow-x:auto}
+.neg{color:var(--down)}
+.vrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.vrow:last-of-type{border:0}
+.nm{font-size:13px;color:var(--sub)}
+.v{font-size:20px;font-weight:700;text-align:right;white-space:nowrap}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;font-weight:600}
+.b-under{background:rgba(31,92,74,.13);color:var(--acc)}
+.b-over{background:rgba(192,57,43,.13);color:var(--up)}
+.note{font-size:12px;color:var(--sub);margin-top:6px}
+.self td{font-weight:700;color:var(--ink)}
+tr.link td{cursor:pointer}
+canvas{max-height:220px}
+.empty{text-align:center;color:var(--sub);padding:30px 8px}
+.msg{font-size:13px;padding:8px 12px;border-radius:10px;margin:8px 0;background:rgba(31,92,74,.1);color:var(--acc)}
+.msg.err{background:rgba(192,57,43,.1);color:var(--up)}
+label{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
+label input{display:block;width:100%;margin-top:4px;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:8px;margin-top:12px}
+.row .btn{padding:10px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <form class="search" id="f" autocomplete="off">
+      <input id="q" placeholder="コード or 会社名" enterkeyhint="search">
+      <button class="btn">分析</button>
+      <button type="button" class="btn ghost" id="gear" aria-label="設定">⚙</button>
+      <div class="sugg" id="sugg" hidden></div>
+    </form>
+    <div class="chips" id="chips"></div>
+  </div>
+  <div id="msg"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+/* ---------- 試作データ（設定前に表示） ---------- */
+const DEMO = {"7208":{"code":"7208","name":"カネミツ","sector":"輸送用機器","market":"スタンダード","price":1190.0,"date":"2026-10-30","mcap":60.8,"years":["2017-03","2018-03","2019-03","2020-03","2021-03","2022-03","2023-03","2024-03","2025-03","2026-03"],"s":{"sales":[90.6,94.9,91.2,81.5,70.3,87.6,100.2,110.9,111.2,110.4],"op":[10.1,10.0,9.3,1.1,-4.0,2.0,4.2,5.8,7.5,8.8],"odp":[9.7,9.7,9.6,1.1,-4.0,2.4,4.9,6.7,8.1,9.4],"np":[7.7,7.3,7.0,0.7,-1.1,1.6,5.4,6.3,5.4,7.4],"cfo":[14.9,14.5,13.9,8.1,5.6,10.9,9.0,14.2,16.5,21.2],"fcf":[9.4,3.9,4.8,-6.2,1.3,5.7,5.7,4.2,6.1,15.1],"op_m":[11.11,10.53,10.19,1.39,-5.66,2.28,4.24,5.19,6.79,7.96],"odp_m":[10.67,10.25,10.51,1.39,-5.66,2.73,4.86,6.05,7.32,8.52],"roe":[10.02,8.75,7.84,0.76,-1.2,1.8,5.7,6.15,4.85,6.19],"eps":[150.02,142.99,137.17,13.79,-21.42,32.02,105.22,123.65,105.72,145.3],"adj_eps":[150.02,142.99,137.17,13.79,-21.42,32.02,105.22,123.65,105.72,145.3],"px":[1158.0,1085.0,914.0,567.0,759.0,700.0,767.0,1009.0,836.0,1095.0],"per":[7.72,7.59,6.66,41.12,null,21.86,7.29,8.16,7.91,7.54],"pbr":[0.74,0.63,0.51,0.32,0.43,0.39,0.4,0.48,0.37,0.45],"ta_turn":[0.74,0.73,0.7,0.62,0.52,0.61,0.67,0.7,0.69,0.68],"eq_ratio":[62.5,66.65,70.25,69.8,63.48,63.34,63.54,66.93,71.26,77.21],"debt_ratio":[56.44,46.89,39.29,39.31,55.67,56.07,55.67,47.71,38.61,27.84],"bps":[1558.88,1710.16,1790.4,1787.81,1756.25,1780.37,1914.72,2108.08,2243.99,2447.35],"ebitda":[16.9,17.2,16.1,8.2,3.6,9.6,12.0,13.8,15.5,16.0],"ev":[54.8,48.0,33.6,17.3,34.3,27.2,25.0,33.4,12.6,9.2],"ev_ebitda":[3.24,2.78,2.09,2.1,9.43,2.83,2.08,2.42,0.81,0.58],"op_ev":[18.37,20.84,27.68,6.54,-11.61,7.35,17.02,17.24,60.09,95.22]},"ev":{"ev":14.1,"mcap":60.8,"ibd":3.6,"cash":50.4,"net_debt":-46.8,"basis":"2026-03","da":7.2,"ebitda":16.0,"ebitda_f":15.6,"ev_ebitda":0.88,"ev_ebitda_f":0.9,"op_ev":62.39,"op_ev_f":59.62},"cagr_n":[3,5],"cagr":{"sales":[3.27,9.43],"op":[27.41,null],"adj_eps":[11.36,null]},"fc":{"fy":"2027-03-31","sales":113.0,"op":8.4,"np":6.8,"eps":133.06,"per":8.94,"yoy":[2.36,-4.44,-8.36]},"fv":[["残余利益モデル",1966.73,1770.05,65.27,"BPS 2,447円・予想EPSからROE 5.4%・資本コスト10%・配当性向31%"],["DCF法",3887.25,3498.53,226.66,"FCF5年平均 7.4億円・成長率9.4%（5年）→永久1%・割引率8%・純有利子負債を控除"],["EV/EBITDA倍率法",1620.86,1458.78,36.21,"過去10期の中央値 2.3倍 × EBITDA 16.0億円"],["PER中央値 × EPS",1027.09,924.38,-13.69,"予想EPSを優先"],["PBR中央値 × BPS",1076.34,968.7,-9.55,""]],"fv_note":"買い目安は安全余裕率10%。有利子負債・現金預金・減価償却費は決算短信の明細から（有利子負債は借入金・社債・CP・リース債務の合計）","peers":[["7208","カネミツ","2026-03-31",60.8,110.4,7.96,3.27,6.19,8.19,0.49,77.21,0.88,62.39],["7297","カーメイト","2026-03-31",60.0,145.6,4.15,-4.36,1.87,21.35,0.39,75.23,null,null],["7214","ＧＭＢ","2026-03-31",55.2,1052.8,3.15,6.49,-4.51,null,0.24,23.7,5.03,8.72],["6042","ニッキ","2026-03-31",72.2,92.7,11.92,1.74,7.08,7.53,0.52,57.31,5.43,10.34],["7271","安永","2026-03-31",76.8,339.5,6.52,0.66,14.35,4.1,0.52,34.76,5.01,11.04],["7264","ムロコーポレーション","2026-03-31",81.9,231.4,5.35,1.95,3.19,11.46,0.36,75.07,0.57,83.6]]},"8088":{"code":"8088","name":"岩谷産業","sector":"卸売業","market":"プライム","price":1925.0,"date":"2026-10-30","mcap":4430.9,"years":["2017-03","2018-03","2019-03","2020-03","2021-03","2022-03","2023-03","2024-03","2025-03","2026-03"],"s":{"sales":[5880.4,6707.9,7150.9,6867.7,6355.9,6903.9,9062.6,8478.9,8830.1,9085.2],"op":[250.4,271.9,264.6,287.3,299.9,400.8,400.4,506.4,462.3,383.2],"odp":[268.3,294.1,299.5,322.7,344.1,464.1,470.1,662.0,614.9,552.2],"np":[165.5,175.8,192.2,209.9,232.1,299.6,320.2,473.6,404.5,476.7],"cfo":[372.4,285.1,391.2,402.6,487.8,130.8,514.7,548.5,524.2,591.3],"fcf":[68.5,20.8,154.2,93.8,199.5,-188.6,-88.2,-1064.1,-60.0,353.5],"op_m":[4.26,4.05,3.7,4.18,4.72,5.8,4.42,5.97,5.24,4.22],"odp_m":[4.56,4.38,4.19,4.7,5.41,6.72,5.19,7.81,6.96,6.08],"roe":[13.28,12.17,12.02,12.08,10.93,11.69,11.19,14.26,10.81,11.58],"eps":[67.24,357.2,390.62,426.63,431.65,520.98,556.69,823.31,175.76,207.1],"adj_eps":[84.05,89.3,97.66,106.66,107.91,130.25,139.17,205.83,175.76,207.1],"px":[648.0,3930.0,3555.0,3610.0,6830.0,5170.0,5790.0,8542.0,1494.5,2005.0],"per":[9.64,11.0,9.1,8.46,15.82,9.92,10.4,10.38,8.5,9.68],"pbr":[1.19,1.25,1.06,0.97,1.62,1.1,1.1,1.36,0.89,1.06],"ta_turn":[1.4,1.51,1.57,1.48,1.3,1.29,1.49,1.14,1.03,1.03],"eq_ratio":[30.92,33.9,36.15,38.8,47.58,48.37,46.03,43.42,44.26,48.58],"debt_ratio":[215.61,187.51,171.46,152.83,106.29,102.98,113.84,127.36,123.05,103.13],"bps":[546.27,3138.11,3361.91,3703.65,4215.16,4696.56,5249.53,6298.26,1677.41,1898.97],"ebitda":[447.4,470.6,472.3,508.4,532.0,639.5,675.9,799.5,774.1,721.9],"ev":[2730.5,3071.9,2813.2,2787.1,4501.9,3783.6,4385.3,7117.3,5474.7,6810.7],"ev_ebitda":[6.1,6.53,5.96,5.48,8.46,5.92,6.49,8.9,7.07,9.43],"op_ev":[9.17,8.85,9.4,10.31,6.66,10.59,9.13,7.11,8.44,5.63]},"ev":{"ev":6626.6,"mcap":4430.9,"ibd":2472.4,"cash":276.7,"net_debt":2195.7,"basis":"2026-03","da":338.7,"ebitda":721.9,"ebitda_f":826.7,"ev_ebitda":9.18,"ev_ebitda_f":8.02,"op_ev":5.78,"op_ev_f":7.36},"cagr_n":[3,5],"cagr":{"sales":[0.08,7.41],"op":[-1.45,5.03],"adj_eps":[14.17,13.93]},"fc":{"fy":"2027-03-31","sales":9600.0,"op":488.0,"np":455.0,"eps":197.67,"per":9.74,"yoy":[5.67,27.36,-4.54]},"fv":[["残余利益モデル",2349.22,2114.29,22.04,"BPS 1,899円・予想EPSからROE 10.4%・資本コスト6%・配当性向24%"],["DCF法",null,null,null,"フリーCFの平均がマイナスのため算出できません"],["EV/EBITDA倍率法",1087.24,978.52,-43.52,"過去10期の中央値 6.5倍 × EBITDA 721.9億円"],["PER中央値 × EPS",1937.65,1743.89,0.66,"予想EPSを優先"],["PBR中央値 × BPS",2092.44,1883.19,8.7,""]],"fv_note":"買い目安は安全余裕率10%。有利子負債・現金預金・減価償却費は決算短信の明細から（有利子負債は借入金・社債・CP・リース債務の合計）","peers":[["8088","岩谷産業","2026-03-31",4430.9,9085.2,4.22,0.08,11.58,9.3,1.01,48.58,9.18,5.78],["2784","アルフレッサ　ホールディングス","2026-03-31",4331.0,31040.6,1.17,4.81,8.44,10.75,0.88,33.67,5.38,13.12],["8012","長瀬産業","2026-03-31",5111.1,9727.8,4.6,2.14,8.03,15.97,1.21,48.82,10.16,6.84],["8020","兼松","2026-03-31",3838.3,10676.6,4.56,5.42,17.01,11.8,1.84,28.43,7.81,9.57],["8078","阪和興業","2026-03-31",3508.0,26626.7,2.19,-0.07,9.44,9.47,0.83,35.25,9.04,9.47],["3107","ダイワボウホールディングス","2026-03-31",3281.2,13508.8,3.27,14.33,19.9,10.5,1.95,36.75,6.52,14.66]]}};
+
+/* ---------- 保存（端末内） ---------- */
+const LS={get(k,d){try{const v=localStorage.getItem('ma_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+          set(k,v){try{localStorage.setItem('ma_'+k,JSON.stringify(v))}catch(e){}}};
+const S={cfg:LS.get('cfg',{url:'',token:''}),list:LS.get('list',null),updated:LS.get('updated',''),
+         fav:LS.get('fav',[]),recent:LS.get('recent',[]),tab:LS.get('tab','perf'),cur:null,mem:{}};
+const demo=()=>!S.cfg.url||!S.cfg.token;
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=(v,d=1)=>v==null||isNaN(v)?'—':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:d});
+const cls=v=>v!=null&&v<0?' class="neg"':'';
+const last=a=>{for(let i=a.length-1;i>=0;i--)if(a[i]!=null)return a[i];return null};
+const z2=s=>s.replace(/[０-９Ａ-Ｚａ-ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).toUpperCase();
+function msg(t,err){$('#msg').innerHTML=t?`<div class="msg${err?' err':''}">${esc(t)}</div>`:''}
+
+/* ---------- 通信 ---------- */
+async function api(action,params={}){
+  const c=S.cfg,ac=new AbortController(),tm=setTimeout(()=>ac.abort(),30000);
+  const q=Object.entries({action,token:c.token,...params}).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+  try{
+    const r=await fetch(c.url+(c.url.includes('?')?'&':'?')+q,{signal:ac.signal});
+    const j=await r.json().catch(()=>({error:'bad_response'}));
+    if(j.error)throw new Error(j.error);
+    return j;
+  }catch(e){
+    const m={bad_token:'合言葉が違います。設定を確認してください。',no_token_set:'Apps Script のスクリプトプロパティに TOKEN がありません。',
+      no_data:'データがまだありません（GitHub Actions の初回実行を待ってください）。',not_found:'その銘柄は見つかりませんでした。',
+      bad_code:'銘柄コードは4桁で入れてください。',bad_response:'Apps Script から想定外の応答です。URLが …/exec か確認してください。',AbortError:'通信がタイムアウトしました。'};
+    throw new Error(m[e.message]||m[e.name]||('通信できませんでした（'+e.message+'）'));
+  }finally{clearTimeout(tm)}
+}
+async function loadList(force){
+  if(demo()){S.list=Object.values(DEMO).map(d=>[d.code,d.name,d.sector,d.market]);return}
+  if(S.list&&!force&&LS.get('listDay','')===new Date().toDateString())return;
+  try{const j=await api('list');S.list=j.list;S.updated=j.updated;LS.set('list',j.list);LS.set('updated',j.updated);LS.set('listDay',new Date().toDateString())}
+  catch(e){if(!S.list)msg(e.message,true)}
+}
+async function getStock(code){
+  if(demo()){return DEMO[code]||null}
+  if(S.mem[code])return S.mem[code];
+  const j=await api('get',{code});S.mem[code]=j.data;
+  if(j.updated&&j.updated!==S.updated){S.updated=j.updated;LS.set('updated',j.updated);loadList(true)}
+  return j.data;
+}
+
+/* ---------- 検索 ---------- */
+function nameOf(c){const r=(S.list||[]).find(x=>x[0]===c);return r?r[1]:c}
+function match(q){
+  q=z2(q.trim());if(!q||!S.list)return[];
+  const a=S.list.filter(r=>r[0].startsWith(q)),b=S.list.filter(r=>!r[0].startsWith(q)&&z2(r[1]).includes(q));
+  return a.concat(b).slice(0,30);
+}
+$('#q').oninput=()=>{
+  const m=match($('#q').value),el=$('#sugg');
+  if(!m.length){el.hidden=true;return}
+  el.innerHTML=m.map(r=>`<div data-c="${esc(r[0])}">${esc(r[0])} ${esc(r[1])}<span>${esc(r[2])}</span></div>`).join('');
+  el.hidden=false;
+  el.querySelectorAll('div').forEach(d=>d.onclick=()=>{el.hidden=true;show(d.dataset.c)});
+};
+document.addEventListener('click',e=>{if(!e.target.closest('.search'))$('#sugg').hidden=true});
+$('#f').onsubmit=e=>{
+  e.preventDefault();$('#sugg').hidden=true;
+  const q=z2($('#q').value.trim());if(!q)return;
+  if(/^[0-9A-Z]{4}$/.test(q))return show(q);
+  const m=match(q);if(m.length)show(m[0][0]);else msg('見つかりませんでした',true);
+};
+function chips(){
+  const fav=S.fav,rec=S.recent.filter(c=>!fav.includes(c));
+  $('#chips').innerHTML=fav.map(c=>`<button class="chip fav" data-c="${esc(c)}">★ ${esc(c)} ${esc(nameOf(c))}</button>`).join('')+
+    rec.map(c=>`<button class="chip" data-c="${esc(c)}">${esc(c)} ${esc(nameOf(c))}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>show(b.dataset.c));
+}
+
+/* ---------- 画面 ---------- */
+let charts=[];
+async function show(code){
+  msg('');$('#q').value='';$('#q').blur();
+  $('#out').innerHTML='<div class="card empty">読み込み中…</div>';
+  let d;
+  try{d=await getStock(code)}catch(e){$('#out').innerHTML='';msg(e.message,true);return}
+  if(!d){$('#out').innerHTML=`<div class="card empty">${demo()?'試作データは 7208・8088 だけです。<br>⚙ で Apps Script のURLと合言葉を入れると全銘柄を見られます。':'見つかりませんでした'}</div>`;return}
+  S.cur=d;
+  S.recent=[code,...S.recent.filter(c=>c!==code)].slice(0,10);LS.set('recent',S.recent);chips();
+  location.hash=code;
+  render();window.scrollTo({top:0});
+}
+function grade(v,a,b){return v==null?'－':v>=b?'◎':v>=a?'○':'△'}
+function render(){
+  const d=S.cur,s=d.s,E=d.ev||{},isFav=S.fav.includes(d.code);
+  const opm=last(s.op_m),roe=last(s.roe),eq=last(s.eq_ratio),g=d.cagr.sales[0];
+  $('#out').innerHTML=`
+  <div class="card hero">
+    <button class="star${isFav?' on':''}" id="star" aria-label="お気に入り">${isFav?'★':'☆'}</button>
+    <h1>${esc(d.code)} ${esc(d.name)}</h1>
+    <div class="meta">${esc(d.sector)}・${esc(d.market)}・時価総額 ${fmt(d.mcap,0)}億円</div>
+    <div class="price">${d.price!=null?'¥'+fmt(d.price,0):'—'}<small>${esc(d.date||'')}</small></div>
+    <div class="kpis">
+      <div class="kpi"><b>${fmt(d.fc&&d.fc.per,1)}</b><span>予想PER</span></div>
+      <div class="kpi"><b>${fmt(d.price&&last(s.bps||[])?d.price/last(s.bps):last(s.pbr),2)}</b><span>PBR</span></div>
+      <div class="kpi"><b>${fmt(E.ev_ebitda,1)}</b><span>EV/EBITDA</span></div>
+      <div class="kpi"><b>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</b><span>営業利益/EV</span></div>
+    </div>
+  </div>
+  <div class="card score">
+    <div><b>${grade(opm,5,10)} 収益性</b><span>営業利益率 ${fmt(opm,1)}%</span></div>
+    <div><b>${grade(roe,8,12)} 資本効率</b><span>ROE ${fmt(roe,1)}%</span></div>
+    <div><b>${grade(eq,40,60)} 安全性</b><span>自己資本 ${fmt(eq,0)}%</span></div>
+    <div><b>${grade(g,3,8)} 成長性</b><span>売上${d.cagr_n[0]||''}年 ${fmt(g,1)}%</span></div>
+  </div>
+  <div class="tabs">${[['perf','業績'],['ratio','指標'],['fv','理論株価'],['peer','競合']].map(([k,l])=>`<button class="tab${S.tab===k?' on':''}" data-t="${k}">${l}</button>`).join('')}</div>
+  <div id="pane"></div>
+  <div class="note" style="text-align:center">${demo()?'試作データ（2026-10-30時点）':'データ更新 '+esc(S.updated)}</div>`;
+  $('#star').onclick=()=>{S.fav=isFav?S.fav.filter(c=>c!==d.code):[d.code,...S.fav];LS.set('fav',S.fav);chips();render()};
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;LS.set('tab',S.tab);render()});
+  pane();
+}
+function tbl(rows,years){
+  return `<div class="scroll yr"><table><thead><tr><th></th>${years.map(y=>`<th>${esc(y.slice(2).replace('-','/'))}</th>`).join('')}</tr></thead><tbody>`+
+    rows.map(([l,a,dg])=>`<tr><td>${l}</td>${(a||[]).map(v=>`<td${cls(v)}>${fmt(v,dg)}</td>`).join('')}</tr>`).join('')+'</tbody></table></div>';
+}
+function pane(){
+  charts.forEach(c=>c.destroy());charts=[];
+  const d=S.cur,s=d.s,Y=d.years.map(y=>y.slice(2).replace('-','/')),P=$('#pane');
+  const cs=getComputedStyle(document.documentElement),acc=cs.getPropertyValue('--acc').trim(),sub=cs.getPropertyValue('--sub').trim();
+  if(window.Chart){Chart.defaults.color=sub;Chart.defaults.borderColor=cs.getPropertyValue('--line').trim();Chart.defaults.font.size=11}
+  const chart=(id,cfg)=>{if(window.Chart&&$(id))charts.push(new Chart($(id),cfg))};
+  setTimeout(()=>document.querySelectorAll('.scroll.yr').forEach(e=>e.scrollLeft=e.scrollWidth),0);  // 最新期が見えるように右端へ
+  if(S.tab==='perf'){
+    const f=d.fc;
+    P.innerHTML=`<div class="card"><h2>売上高・営業利益（億円）</h2><canvas id="c1"></canvas></div>
+    <div class="card"><h2>業績推移（億円）</h2>${tbl([['売上高',s.sales],['営業利益',s.op],['経常利益',s.odp],['純利益',s.np],['営業CF',s.cfo],['フリーCF',s.fcf]],d.years)}</div>
+    <div class="card"><h2>会社予想 ${f?esc(f.fy.slice(0,7)):''}</h2>${f?`
+      <table><thead><tr><th></th><th>売上高</th><th>営業利益</th><th>純利益</th></tr></thead><tbody>
+      <tr><td>予想（億円）</td><td>${fmt(f.sales)}</td><td>${fmt(f.op)}</td><td>${fmt(f.np)}</td></tr>
+      <tr><td>前期比</td>${f.yoy.map(v=>`<td${cls(v)}>${v==null?'—':(v>0?'+':'')+fmt(v,1)+'%'}</td>`).join('')}</tr></tbody></table>
+      <div class="note">予想EPS ${fmt(f.eps,2)} 円 ／ 予想PER ${fmt(f.per,1)} 倍</div>`:'<div class="note">予想の開示なし</div>'}</div>
+    <div class="card"><h2>成長率（年平均）</h2>${d.cagr_n.length?`
+      <table><thead><tr><th></th>${d.cagr_n.map(n=>`<th>${n}年</th>`).join('')}</tr></thead><tbody>
+      ${[['売上高','sales'],['営業利益','op'],['EPS(調整後)','adj_eps']].map(([l,k])=>`<tr><td>${l}</td>${d.cagr[k].map(v=>`<td${cls(v)}>${v==null?'—':fmt(v,1)+'%'}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<div class="note">決算が4期分たまると表示します</div>'}</div>`;
+    chart('#c1',{data:{labels:Y,datasets:[
+      {type:'bar',label:'売上高',data:s.sales,backgroundColor:acc+'55',yAxisID:'y'},
+      {type:'line',label:'営業利益',data:s.op,borderColor:acc,backgroundColor:acc,yAxisID:'y1',tension:.3}]},
+      options:{plugins:{legend:{position:'bottom'}},scales:{y:{grid:{display:false}},y1:{position:'right',grid:{display:false}}}}});
+  }
+  if(S.tab==='ratio'){
+    P.innerHTML=`<div class="card"><h2>利益率・ROE（%）</h2><canvas id="c2"></canvas></div>
+    <div class="card"><h2>収益性</h2>${tbl([['営業利益率%',s.op_m,2],['経常利益率%',s.odp_m,2],['ROE%',s.roe,2],['EPS',s.eps,2],['EPS(分割調整後)',s.adj_eps,2]],d.years)}</div>
+    <div class="card"><h2>株価指標（期末）</h2>${tbl([['期末株価',s.px,0],['PER',s.per,2],['PBR',s.pbr,2],['EV/EBITDA',s.ev_ebitda,1],['営業利益/EV%',s.op_ev,1]],d.years)}</div>
+    <div class="card"><h2>EV・EBITDA（億円）</h2>${tbl([['EV',s.ev,0],['EBITDA',s.ebitda,1]],d.years)}<div class="note">EV＝期末時価総額＋有利子負債−現金預金、EBITDA＝営業利益＋減価償却費（のれん償却含む）</div></div>
+    <div class="card"><h2>効率性・安全性</h2>${tbl([['総資本回転率',s.ta_turn,2],['自己資本比率%',s.eq_ratio,1],['負債比率%',s.debt_ratio,1]],d.years)}</div>`;
+    chart('#c2',{type:'line',data:{labels:Y,datasets:[
+      {label:'営業利益率',data:s.op_m,borderColor:acc,tension:.3},
+      {label:'ROE',data:s.roe,borderColor:sub,borderDash:[4,3],tension:.3}]},options:{plugins:{legend:{position:'bottom'}}}});
+  }
+  if(S.tab==='fv'){
+    const E=d.ev;
+    const evCard=E?`<div class="card"><h2>EV 指標（${esc(E.basis)}期の明細）</h2>
+      <table><thead><tr><th></th><th>実績</th><th>予想</th></tr></thead><tbody>
+      <tr><td>EV/EBITDA（倍）</td><td>${fmt(E.ev_ebitda,1)}</td><td>${fmt(E.ev_ebitda_f,1)}</td></tr>
+      <tr><td>営業利益/EV</td><td${cls(E.op_ev)}>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</td><td${cls(E.op_ev_f)}>${E.op_ev_f==null?'—':fmt(E.op_ev_f,1)+'%'}</td></tr>
+      <tr><td>EBITDA（億円）</td><td>${fmt(E.ebitda)}</td><td>${fmt(E.ebitda_f)}</td></tr></tbody></table>
+      <div class="note">EV ${fmt(E.ev,0)}億円 ＝ 時価総額 ${fmt(E.mcap,0)} ＋ 有利子負債 ${fmt(E.ibd,0)} − 現金預金 ${fmt(E.cash,0)}。予想は会社予想の営業利益＋直近の減価償却費 ${fmt(E.da)}億円。</div></div>`
+      :`<div class="card"><h2>EV 指標</h2><div class="note">${/銀行|証券|保険|その他金融/.test(d.sector)?'金融業は有利子負債が本業の資金のため、EV指標は出していません。':'財務の明細が無いため出せません。'}</div></div>`;
+    P.innerHTML=`<div class="card"><h2>理論株価（現在値 ${d.price!=null?'¥'+fmt(d.price,0):'—'}）</h2>
+    ${d.fv.length?d.fv.map(([n,v,buy,gap,note])=>v==null?
+      `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'算出できません')}</div></div><div class="v">—</div></div>`:
+      `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'')}</div><div class="note">買い目安 ¥${fmt(buy,0)}</div></div>
+       <div class="v">¥${fmt(v,0)}<div><span class="badge ${gap>0?'b-under':'b-over'}">${gap>0?'割安':'割高'} ${gap>0?'+':''}${fmt(gap,1)}%</span></div></div></div>`).join(''):'<div class="note">株価が取得できないため算出できません</div>'}
+    <div class="note">${esc(d.fv_note)}</div></div>${evCard}`;
+  }
+  if(S.tab==='peer'){
+    const H=['','時価総額(億)','売上(億)','営業利益率%','売上CAGR3年%','ROE%','PER','PBR','自己資本%','EV/EBITDA','営業利益/EV%'];
+    P.innerHTML=`<div class="card"><h2>営業利益率 × ROE</h2><canvas id="c3"></canvas></div>
+    <div class="card"><h2>同業種・時価総額が近い銘柄</h2><div class="scroll"><table><thead><tr>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+    ${d.peers.map((r,i)=>`<tr class="${i===0?'self':'link'}" data-c="${esc(r[0])}"><td>${esc(r[1])}</td>${r.slice(3).map((v,j)=>`<td${cls(v)}>${fmt(v,j===0?0:j>=5&&j<=6?2:1)}</td>`).join('')}${r.length<12?'<td>—</td><td>—</td>':''}</tr>`).join('')}
+    </tbody></table></div><div class="note">表は横にスクロールできます（過去の期は左へ）。行をタップするとその銘柄を開きます。</div></div>`;
+    P.querySelectorAll('tr.link').forEach(t=>t.onclick=()=>show(t.dataset.c));
+    chart('#c3',{type:'scatter',data:{datasets:d.peers.map((r,i)=>({label:r[1],data:[{x:r[5],y:r[7]}],pointRadius:i===0?8:5,backgroundColor:i===0?acc:sub+'99'}))},
+      options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: 利益率${c.parsed.x}% / ROE${c.parsed.y}%`}}},
+      scales:{x:{title:{display:true,text:'営業利益率%'}},y:{title:{display:true,text:'ROE%'}}}}});
+  }
+}
+
+/* ---------- 設定 ---------- */
+$('#gear').onclick=()=>{
+  const c=S.cfg;
+  $('#out').innerHTML=`<div class="card"><h2>設定</h2>
+   <label>Apps Script ウェブアプリのURL（…/exec）<input id="c-url" inputmode="url" value="${esc(c.url)}" placeholder="https://script.google.com/macros/s/…/exec"></label>
+   <label>合言葉（スクリプトプロパティの TOKEN）<input id="c-tok" value="${esc(c.token)}"></label>
+   <div class="row"><button class="btn" id="c-save">保存して接続</button><button class="btn ghost" id="c-back">戻る</button></div>
+   <div class="note">お気に入りと履歴はこの端末に保存されます。データは毎晩（平日19:37）更新されます。</div></div>`;
+  $('#c-back').onclick=()=>S.cur?render():start();
+  $('#c-save').onclick=async()=>{
+    const url=$('#c-url').value.trim(),token=$('#c-tok').value.trim();
+    if(url&&!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){msg('URLは https://script.google.com/macros/s/…/exec の形で入れてください。',true);return}
+    S.cfg={url,token};LS.set('cfg',S.cfg);S.mem={};S.list=null;LS.set('listDay','');
+    await loadList(true);
+    if(!demo()&&S.list){msg(`接続しました（${S.list.length}銘柄・${S.updated}更新）`);start()}
+  };
+};
+
+async function start(){
+  await loadList(false);chips();
+  const h=location.hash.slice(1);
+  const first=/^[0-9A-Z]{4}$/.test(h)?h:(S.recent[0]||S.fav[0]||(demo()?'7208':null));
+  if(first)show(first);
+  else $('#out').innerHTML='<div class="card empty">銘柄コードか会社名を入れてください</div>';
+}
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(/^[0-9A-Z]{4}$/.test(h)&&(!S.cur||S.cur.code!==h))show(h)});
+if('serviceWorker' in navigator&&location.protocol==='https:'&&location.hostname.endsWith('github.io'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+start();
+</script>
+</body>
+</html>
