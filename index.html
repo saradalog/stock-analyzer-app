@@ -203,9 +203,11 @@ function render(){
     <div class="price">${d.price!=null?'¥'+fmt(d.price,0):'—'}<small>${esc(d.date||'')}</small></div>
     <div class="kpis">
       <div class="kpi"><b>${fmt(d.fc&&d.fc.per,1)}</b><span>予想PER</span></div>
-      <div class="kpi"><b>${fmt(d.price&&last(s.bps||[])?d.price/last(s.bps):last(s.pbr),2)}</b><span>PBR</span></div>
-      <div class="kpi"><b>${fmt(E.ev_ebitda,1)}</b><span>EV/EBITDA</span></div>
-      <div class="kpi"><b>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</b><span>${E.basis_op&&E.basis_op!=='営業利益'?'税引前利益/EV':'営業利益/EV'}</span></div>
+      <div class="kpi"><b>${fmt(d.pbr_now??last(s.pbr),2)}</b><span>PBR</span></div>
+      ${d.bank?`<div class="kpi"><b>${fmt(d.bank.fair_pbr,2)}</b><span>妥当PBR</span></div>
+      <div class="kpi"><b>${d.ret&&d.ret.total!=null?fmt(d.ret.total,1)+'%':'—'}</b><span>還元利回り</span></div>`:
+      `<div class="kpi"><b>${fmt(E.ev_ebitda,1)}</b><span>EV/EBITDA</span></div>
+      <div class="kpi"><b>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</b><span>${E.basis_op&&E.basis_op!=='営業利益'?'税引前利益/EV':'営業利益/EV'}</span></div>`}
     </div>
   </div>
   <div class="card score">
@@ -274,7 +276,8 @@ function pane(){
       `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'算出できません')}</div></div><div class="v">—</div></div>`:
       `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'')}</div><div class="note">買い目安 ¥${fmt(buy,0)}</div></div>
        <div class="v">¥${fmt(v,0)}<div><span class="badge ${gap>0?'b-under':'b-over'}">${gap>0?'割安':'割高'} ${gap>0?'+':''}${fmt(gap,1)}%</span></div></div></div>`).join(''):'<div class="note">株価が取得できないため算出できません</div>'}
-    <div class="note">${esc(d.fv_note)}</div></div>${evCard}`;
+    <div class="note">${esc(d.fv_note)}</div></div>${d.bank?bankCard(d):evCard}${retCard(d)}`;
+    if(d.bank)bankChart(d,acc,sub);
   }
   if(S.tab==='peer'){
     const H=['','時価総額(億)','売上(億)','営業利益率%','売上CAGR3年%','ROE%','PER','PBR','自己資本%','EV/EBITDA','営業利益/EV%'];
@@ -307,6 +310,41 @@ $('#gear').onclick=()=>{
   };
 };
 
+/* ---------- 銀行・還元利回り ---------- */
+function bankCard(d){
+  const b=d.bank,gap=b.pbr&&b.fair_pbr?(b.fair_pbr/b.pbr-1)*100:null;
+  return `<div class="card"><h2>銀行・金融の物差し</h2>
+    <table><tbody>
+    <tr><td>今のPBR</td><td>${fmt(b.pbr,2)} 倍</td></tr>
+    <tr><td>妥当PBR（ROE÷資本コスト）</td><td><b>${fmt(b.fair_pbr,2)} 倍</b></td></tr>
+    <tr><td>ROE（${esc(b.roe_src)}）</td><td>${fmt(b.roe,1)}%</td></tr>
+    <tr><td>資本コスト</td><td>${fmt(b.r,0)}%</td></tr>
+    <tr><td>妥当PBRとの差</td><td>${gap==null?'—':`<span class="badge ${gap>0?'b-under':'b-over'}">${gap>0?'割安':'割高'} ${gap>0?'+':''}${fmt(gap,0)}%</span>`}</td></tr>
+    </tbody></table>
+    <div class="note">ROEが資本コストと同じならPBR1倍が妥当、ROEが高いほど高いPBRが正当化される。資本コストは時価総額で6%・8%・10%。</div>
+    <h2 style="margin-top:14px">${esc(d.sector)}の PBR × ROE（${(b.scatter||[]).length}社）</h2>
+    <div class="cw"><canvas id="c4"></canvas></div>
+    <div class="note">線は資本コスト${fmt(b.r,0)}%のときの妥当PBR。線より下にある会社ほど、ROEのわりにPBRが低い（割安）。濃い点がこの銘柄。</div></div>`;
+}
+function bankChart(d,acc,sub){
+  if(!window.Chart||!$('#c4'))return;
+  const b=d.bank,pts=(b.scatter||[]).filter(r=>r[2]<5&&r[3]>-10&&r[3]<30);
+  const mx=Math.max(15,...pts.map(r=>r[3]));
+  charts.push(new Chart($('#c4'),{type:'scatter',data:{datasets:[
+    {label:'妥当PBR',type:'line',data:[{x:0,y:0},{x:mx,y:mx/b.r}],borderColor:sub,borderDash:[4,3],pointRadius:0},
+    {label:'同業',data:pts.filter(r=>r[0]!==d.code).map(r=>({x:r[3],y:r[2],n:r[1]})),backgroundColor:sub+'88',pointRadius:4},
+    {label:d.name,data:[{x:b.roe,y:b.pbr,n:d.name}],backgroundColor:acc,pointRadius:8}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.n?`${c.raw.n}: ROE ${c.parsed.x}% / PBR ${c.parsed.y}`:''}}},
+      scales:{x:{title:{display:true,text:'ROE%'}},y:{title:{display:true,text:'PBR'},min:0}}}}));
+}
+function retCard(d){
+  const r=d.ret; if(!r)return '';
+  return `<div class="card"><h2>株主還元利回り ${r.total==null?'—':fmt(r.total,1)+'%'}</h2>
+    <table><tbody><tr><td>配当利回り（1株配当 ${fmt(r.dps,1)}円）</td><td>${r.div==null?'—':fmt(r.div,2)+'%'}</td></tr>
+    <tr><td>自社株買い（株数の減少率）</td><td${cls(r.buyback)}>${r.buyback==null?'—':fmt(r.buyback,2)+'%'}</td></tr></tbody></table>
+    <div class="note">配当は会社予想を優先。株数の減少率は直近2期の期末株数（自己株式を除く）の比較で、増資や株式報酬で増えるとマイナスになる。</div></div>`;
+}
+
 /* ---------- お気に入り一覧 ---------- */
 const gapOf=(d,name)=>{const r=(d.fv||[]).find(x=>x[0]===name);return r?r[3]:null};
 const SORTS=[
@@ -316,6 +354,8 @@ const SORTS=[
   ['ri','残余利益の乖離',d=>gapOf(d,'残余利益モデル'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
   ['dcf','DCFの乖離',d=>gapOf(d,'DCF法'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
   ['evm','EV/EBITDA倍率の乖離',d=>gapOf(d,'EV/EBITDA倍率法'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
+  ['ret','還元利回り',d=>(d.ret||{}).total,-1,v=>fmt(v,1)+'%'],
+  ['fpbr','妥当PBRとの差',d=>d.bank&&d.bank.pbr&&d.bank.fair_pbr?(d.bank.fair_pbr/d.bank.pbr-1)*100:null,-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
   ['per','予想PER',d=>(d.fc||{}).per,1,v=>fmt(v,1)+'倍'],
   ['roe','ROE',d=>last(d.s.roe),-1,v=>fmt(v,1)+'%'],
 ];
