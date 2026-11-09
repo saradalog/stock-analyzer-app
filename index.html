@@ -65,7 +65,7 @@ thead th{color:var(--sub);font-weight:400;font-size:12px}
 .note{font-size:12px;color:var(--sub);margin-top:6px}
 .self td{font-weight:700;color:var(--ink)}
 tr.link td{cursor:pointer}
-canvas{max-height:220px}
+.cw{position:relative;height:220px}
 .empty{text-align:center;color:var(--sub);padding:30px 8px}
 .msg{font-size:13px;padding:8px 12px;border-radius:10px;margin:8px 0;background:rgba(31,92,74,.1);color:var(--acc)}
 .msg.err{background:rgba(192,57,43,.1);color:var(--up)}
@@ -218,12 +218,12 @@ function pane(){
   charts.forEach(c=>c.destroy());charts=[];
   const d=S.cur,s=d.s,Y=d.years.map(y=>y.slice(2).replace('-','/')),P=$('#pane');
   const cs=getComputedStyle(document.documentElement),acc=cs.getPropertyValue('--acc').trim(),sub=cs.getPropertyValue('--sub').trim();
-  if(window.Chart){Chart.defaults.color=sub;Chart.defaults.borderColor=cs.getPropertyValue('--line').trim();Chart.defaults.font.size=11}
+  if(window.Chart){Chart.defaults.color=sub;Chart.defaults.borderColor=cs.getPropertyValue('--line').trim();Chart.defaults.font.size=11;Chart.defaults.maintainAspectRatio=false}
   const chart=(id,cfg)=>{if(window.Chart&&$(id))charts.push(new Chart($(id),cfg))};
   setTimeout(()=>document.querySelectorAll('.scroll.yr').forEach(e=>e.scrollLeft=e.scrollWidth),0);  // 最新期が見えるように右端へ
   if(S.tab==='perf'){
     const f=d.fc;
-    P.innerHTML=`<div class="card"><h2>売上高・営業利益（億円）</h2><canvas id="c1"></canvas></div>
+    P.innerHTML=`<div class="card"><h2>売上高・営業利益（億円）</h2><div class="cw"><canvas id="c1"></canvas></div></div>
     <div class="card"><h2>業績推移（億円）</h2>${tbl([['売上高',s.sales],['営業利益',s.op],['経常利益',s.odp],['純利益',s.np],['営業CF',s.cfo],['フリーCF',s.fcf]],d.years)}</div>
     <div class="card"><h2>会社予想 ${f?esc(f.fy.slice(0,7)):''}</h2>${f?`
       <table><thead><tr><th></th><th>売上高</th><th>営業利益</th><th>純利益</th></tr></thead><tbody>
@@ -239,7 +239,7 @@ function pane(){
       options:{plugins:{legend:{position:'bottom'}},scales:{y:{grid:{display:false}},y1:{position:'right',grid:{display:false}}}}});
   }
   if(S.tab==='ratio'){
-    P.innerHTML=`<div class="card"><h2>利益率・ROE（%）</h2><canvas id="c2"></canvas></div>
+    P.innerHTML=`<div class="card"><h2>利益率・ROE（%）</h2><div class="cw"><canvas id="c2"></canvas></div></div>
     <div class="card"><h2>収益性</h2>${tbl([['営業利益率%',s.op_m,2],['経常利益率%',s.odp_m,2],['ROE%',s.roe,2],['EPS',s.eps,2],['EPS(分割調整後)',s.adj_eps,2]],d.years)}</div>
     <div class="card"><h2>株価指標（期末）</h2>${tbl([['期末株価',s.px,0],['PER',s.per,2],['PBR',s.pbr,2],['EV/EBITDA',s.ev_ebitda,1],['営業利益/EV%',s.op_ev,1]],d.years)}</div>
     <div class="card"><h2>EV・EBITDA（億円）</h2>${tbl([['EV',s.ev,0],['EBITDA',s.ebitda,1]],d.years)}<div class="note">EV＝期末時価総額＋有利子負債−現金預金、EBITDA＝営業利益＋減価償却費（のれん償却含む）</div></div>
@@ -266,7 +266,7 @@ function pane(){
   }
   if(S.tab==='peer'){
     const H=['','時価総額(億)','売上(億)','営業利益率%','売上CAGR3年%','ROE%','PER','PBR','自己資本%','EV/EBITDA','営業利益/EV%'];
-    P.innerHTML=`<div class="card"><h2>営業利益率 × ROE</h2><canvas id="c3"></canvas></div>
+    P.innerHTML=`<div class="card"><h2>営業利益率 × ROE</h2><div class="cw"><canvas id="c3"></canvas></div></div>
     <div class="card"><h2>同業種・時価総額が近い銘柄</h2><div class="scroll"><table><thead><tr>${H.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
     ${d.peers.map((r,i)=>`<tr class="${i===0?'self':'link'}" data-c="${esc(r[0])}"><td>${esc(r[1])}</td>${r.slice(3).map((v,j)=>`<td${cls(v)}>${fmt(v,j===0?0:j>=5&&j<=6?2:1)}</td>`).join('')}${r.length<12?'<td>—</td><td>—</td>':''}</tr>`).join('')}
     </tbody></table></div><div class="note">表は横にスクロールできます（過去の期は左へ）。行をタップするとその銘柄を開きます。</div></div>`;
