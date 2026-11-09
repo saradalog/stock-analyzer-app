@@ -73,6 +73,13 @@ label{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
 label input{display:block;width:100%;margin-top:4px;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .row{display:flex;gap:8px;margin-top:12px}
 .row .btn{padding:10px 14px}
+.sortsel{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px}
+.sortsel button{flex:none;font-size:12px;padding:6px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--sub)}
+.sortsel button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.rank td{cursor:pointer}
+.rank .big{font-weight:700;color:var(--ink)}
+.rank td:first-child{white-space:normal;min-width:8.5em;max-width:10em}
+.rank .nm2{font-size:11px;color:var(--sub);display:block}
 </style>
 </head>
 <body>
@@ -81,6 +88,7 @@ label input{display:block;width:100%;margin-top:4px;font-size:15px;padding:9px 1
     <form class="search" id="f" autocomplete="off">
       <input id="q" placeholder="コード or 会社名" enterkeyhint="search">
       <button class="btn">分析</button>
+      <button type="button" class="btn ghost" id="favlist" aria-label="お気に入り一覧">★</button>
       <button type="button" class="btn ghost" id="gear" aria-label="設定">⚙</button>
       <div class="sugg" id="sugg" hidden></div>
     </form>
@@ -134,7 +142,10 @@ async function loadList(force){
 async function getStock(code){
   if(demo()){return DEMO[code]||null}
   if(S.mem[code])return S.mem[code];
+  const c=LS.get('st_'+code,null);
+  if(c&&c.u&&c.u===S.updated&&c.d){S.mem[code]=c.d;return c.d}
   const j=await api('get',{code});S.mem[code]=j.data;
+  if(j.updated)LS.set('st_'+code,{u:j.updated,d:j.data});
   if(j.updated&&j.updated!==S.updated){S.updated=j.updated;LS.set('updated',j.updated);loadList(true)}
   return j.data;
 }
@@ -295,14 +306,59 @@ $('#gear').onclick=()=>{
   };
 };
 
+/* ---------- お気に入り一覧 ---------- */
+const gapOf=(d,name)=>{const r=(d.fv||[]).find(x=>x[0]===name);return r?r[3]:null};
+const SORTS=[
+  ['op_ev','営業利益/EV',d=>(d.ev||{}).op_ev,-1,v=>fmt(v,1)+'%'],
+  ['op_ev_f','営業利益/EV(予)',d=>(d.ev||{}).op_ev_f,-1,v=>fmt(v,1)+'%'],
+  ['ev_ebitda','EV/EBITDA',d=>(d.ev||{}).ev_ebitda,1,v=>fmt(v,1)+'倍'],
+  ['ri','残余利益の乖離',d=>gapOf(d,'残余利益モデル'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
+  ['dcf','DCFの乖離',d=>gapOf(d,'DCF法'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
+  ['evm','EV/EBITDA倍率の乖離',d=>gapOf(d,'EV/EBITDA倍率法'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
+  ['per','予想PER',d=>(d.fc||{}).per,1,v=>fmt(v,1)+'倍'],
+  ['roe','ROE',d=>last(d.s.roe),-1,v=>fmt(v,1)+'%'],
+];
+async function favList(){
+  msg('');location.hash='list';S.cur=null;
+  const codes=S.fav.length?S.fav:[];
+  if(!codes.length){$('#out').innerHTML='<div class="card empty">お気に入りがまだありません。<br>銘柄画面の ☆ を押すとここに並びます。</div>';return}
+  $('#out').innerHTML=`<div class="card empty">読み込み中… 0/${codes.length}</div>`;
+  const got={};let done=0,err=null,i=0;
+  async function worker(){while(i<codes.length){const c=codes[i++];
+    try{const d=await getStock(c);if(d)got[c]=d}catch(e){err=e.message}
+    done++;const el=$('#out .empty');if(el)el.textContent=`読み込み中… ${done}/${codes.length}`}}
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  if(err)msg(err,true);
+  S.listData=got;renderList();
+}
+function renderList(){
+  const key=LS.get('sort','op_ev'),srt=SORTS.find(x=>x[0]===key)||SORTS[0],[k,label,get,dir,fmtv]=srt;
+  const rows=Object.values(S.listData||{}).map(d=>({d,v:get(d)}));
+  rows.sort((a,b)=>(a.v==null)-(b.v==null)||dir*((a.v??0)-(b.v??0)));
+  const g=(d,n)=>{const v=gapOf(d,n);return v==null?'—':(v>0?'+':'')+fmt(v,0)+'%'};
+  $('#out').innerHTML=`<div class="card"><h2>お気に入り ${rows.length}銘柄</h2>
+    <div class="sortsel">${SORTS.map(x=>`<button data-k="${x[0]}" class="${x[0]===k?'on':''}">${x[1]}</button>`).join('')}</div>
+    <div class="scroll"><table class="rank"><thead><tr><th></th><th>${esc(label)}</th><th>株価</th><th>営業利益/EV</th><th>EV/EBITDA</th><th>残余利益</th><th>DCF</th><th>予想PER</th></tr></thead><tbody>
+    ${rows.map(({d,v},n)=>`<tr data-c="${esc(d.code)}"><td>${n+1}. ${esc(d.name)}<span class="nm2">${esc(d.code)}・${esc(d.sector)}</span></td>
+      <td class="big"${cls(v)}>${v==null?'—':fmtv(v)}</td><td>${fmt(d.price,0)}</td>
+      <td>${(d.ev||{}).op_ev==null?'—':fmt(d.ev.op_ev,1)+'%'}</td><td>${fmt((d.ev||{}).ev_ebitda,1)}</td>
+      <td>${g(d,'残余利益モデル')}</td><td>${g(d,'DCF法')}</td><td>${fmt((d.fc||{}).per,1)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="note">残余利益・DCF は理論株価と株価の差（プラスが割安）。営業利益/EV は大きいほど、EV/EBITDA・PER は小さいほど割安。行をタップするとその銘柄を開きます。</div></div>`;
+  document.querySelectorAll('.sortsel button').forEach(b=>b.onclick=()=>{LS.set('sort',b.dataset.k);renderList()});
+  document.querySelectorAll('.rank tbody tr').forEach(t=>t.onclick=()=>show(t.dataset.c));
+}
+$('#favlist').onclick=favList;
+
 async function start(){
   await loadList(false);chips();
   const h=location.hash.slice(1);
+  if(h==='list')return favList();
   const first=/^[0-9A-Z]{4}$/.test(h)?h:(S.recent[0]||S.fav[0]||(demo()?'7208':null));
   if(first)show(first);
   else $('#out').innerHTML='<div class="card empty">銘柄コードか会社名を入れてください</div>';
 }
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(/^[0-9A-Z]{4}$/.test(h)&&(!S.cur||S.cur.code!==h))show(h)});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h==='list'&&S.cur)return favList();if(/^[0-9A-Z]{4}$/.test(h)&&(!S.cur||S.cur.code!==h))show(h)});
 if('serviceWorker' in navigator&&location.protocol==='https:'&&location.hostname.endsWith('github.io'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 start();
 </script>
