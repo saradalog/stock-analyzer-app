@@ -119,7 +119,7 @@ async function api(action,params={}){
     if(j.error)throw new Error(j.error);
     return j;
   }catch(e){
-    const m={bad_token:'合言葉が違います。設定を確認してください。',no_token_set:'Apps Script のスクリプトプロパティに TOKEN がありません。',
+    const m={bad_token:'合言葉が違います。設定を確認してください。',no_token_set:'Apps Script の合言葉（MY_TOKEN）が未設定です。',
       no_data:'データがまだありません（GitHub Actions の初回実行を待ってください）。',not_found:'その銘柄は見つかりませんでした。',
       bad_code:'銘柄コードは4桁で入れてください。',bad_response:'Apps Script から想定外の応答です。URLが …/exec か確認してください。',AbortError:'通信がタイムアウトしました。'};
     throw new Error(m[e.message]||m[e.name]||('通信できませんでした（'+e.message+'）'));
