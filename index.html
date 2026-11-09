@@ -205,7 +205,7 @@ function render(){
       <div class="kpi"><b>${fmt(d.fc&&d.fc.per,1)}</b><span>予想PER</span></div>
       <div class="kpi"><b>${fmt(d.price&&last(s.bps||[])?d.price/last(s.bps):last(s.pbr),2)}</b><span>PBR</span></div>
       <div class="kpi"><b>${fmt(E.ev_ebitda,1)}</b><span>EV/EBITDA</span></div>
-      <div class="kpi"><b>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</b><span>営業利益/EV</span></div>
+      <div class="kpi"><b>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</b><span>${E.basis_op&&E.basis_op!=='営業利益'?'税引前利益/EV':'営業利益/EV'}</span></div>
     </div>
   </div>
   <div class="card score">
@@ -266,7 +266,8 @@ function pane(){
       <tr><td>EV/EBITDA（倍）</td><td>${fmt(E.ev_ebitda,1)}</td><td>${fmt(E.ev_ebitda_f,1)}</td></tr>
       <tr><td>営業利益/EV</td><td${cls(E.op_ev)}>${E.op_ev==null?'—':fmt(E.op_ev,1)+'%'}</td><td${cls(E.op_ev_f)}>${E.op_ev_f==null?'—':fmt(E.op_ev_f,1)+'%'}</td></tr>
       <tr><td>EBITDA（億円）</td><td>${fmt(E.ebitda)}</td><td>${fmt(E.ebitda_f)}</td></tr></tbody></table>
-      <div class="note">EV ${fmt(E.ev,0)}億円 ＝ 時価総額 ${fmt(E.mcap,0)} ＋ 有利子負債 ${fmt(E.ibd,0)} − 現金預金 ${fmt(E.cash,0)}。予想は会社予想の営業利益＋直近の減価償却費 ${fmt(E.da)}億円。</div></div>`
+      <div class="note">EV ${fmt(E.ev,0)}億円 ＝ 時価総額 ${fmt(E.mcap,0)} ＋ 有利子負債 ${fmt(E.ibd,0)} − 現金預金 ${fmt(E.cash,0)}。予想は${esc(E.basis_f||'会社予想の営業利益')}＋直近の減価償却費 ${fmt(E.da)}億円。</div>
+      ${E.basis_op&&E.basis_op!=='営業利益'?`<div class="note" style="color:var(--up)">※ 決算短信に営業利益が無いため、${esc(E.basis_op)}で計算しています（EBITDA・営業利益/EV とも）。</div>`:''}</div>`
       :`<div class="card"><h2>EV 指標</h2><div class="note">${/銀行|証券|保険|その他金融/.test(d.sector)?'金融業は有利子負債が本業の資金のため、EV指標は出していません。':'財務の明細が無いため出せません。'}</div></div>`;
     P.innerHTML=`<div class="card"><h2>理論株価（現在値 ${d.price!=null?'¥'+fmt(d.price,0):'—'}）</h2>
     ${d.fv.length?d.fv.map(([n,v,buy,gap,note])=>v==null?
@@ -341,10 +342,10 @@ function renderList(){
     <div class="scroll"><table class="rank"><thead><tr><th></th><th>${esc(label)}</th><th>株価</th><th>営業利益/EV</th><th>EV/EBITDA</th><th>残余利益</th><th>DCF</th><th>予想PER</th></tr></thead><tbody>
     ${rows.map(({d,v},n)=>`<tr data-c="${esc(d.code)}"><td>${n+1}. ${esc(d.name)}<span class="nm2">${esc(d.code)}・${esc(d.sector)}</span></td>
       <td class="big"${cls(v)}>${v==null?'—':fmtv(v)}</td><td>${fmt(d.price,0)}</td>
-      <td>${(d.ev||{}).op_ev==null?'—':fmt(d.ev.op_ev,1)+'%'}</td><td>${fmt((d.ev||{}).ev_ebitda,1)}</td>
+      <td>${(d.ev||{}).op_ev==null?'—':fmt(d.ev.op_ev,1)+'%'+(d.ev.basis_op&&d.ev.basis_op!=='営業利益'?'*':'')}</td><td>${fmt((d.ev||{}).ev_ebitda,1)}</td>
       <td>${g(d,'残余利益モデル')}</td><td>${g(d,'DCF法')}</td><td>${fmt((d.fc||{}).per,1)}</td></tr>`).join('')}
     </tbody></table></div>
-    <div class="note">残余利益・DCF は理論株価と株価の差（プラスが割安）。営業利益/EV は大きいほど、EV/EBITDA・PER は小さいほど割安。行をタップするとその銘柄を開きます。</div></div>`;
+    <div class="note">残余利益・DCF は理論株価と株価の差（プラスが割安）。営業利益/EV は大きいほど、EV/EBITDA・PER は小さいほど割安。* は営業利益が無いため税引前利益で計算。行をタップするとその銘柄を開きます。</div></div>`;
   document.querySelectorAll('.sortsel button').forEach(b=>b.onclick=()=>{LS.set('sort',b.dataset.k);renderList()});
   document.querySelectorAll('.rank tbody tr').forEach(t=>t.onclick=()=>show(t.dataset.c));
 }
