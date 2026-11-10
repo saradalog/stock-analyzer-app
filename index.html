@@ -377,8 +377,10 @@ function ownProgressCard(d){
     return `<tr><td>Q${q.q}</td><td>${oku(actual)}</td><td><b>${rate(a)}</b></td><td>${paceBadge||'—'}</td><td>${ct!=null?rate(ca):'—'}</td></tr>`;
   }).join('');
   const final=p.final;
-  const finalBox=final?`<div class="vrow"><div><div class="nm">最終検証</div><div class="note">${esc(label)} 実績 ${oku(final.actual)}億円 ／ 独自予想 ${oku(final.forecast)}億円</div></div>
-    <div class="v">${final.error==null?'—':`<span class="badge ${Math.abs(final.error)<=5?'b-under':'b-over'}">誤差 ${final.error>=0?'+':''}${fmt(final.error,1)}%</span>`}
+  const finalBox=final?`<div class="vrow"><div><div class="nm">最終検証</div><div class="note">${esc(label)} 実績 ${oku(final.actual)}億円 ／ 最新独自予想 ${oku(final.forecast)}億円</div>
+      ${final.baseline_forecast==null?'':`<div class="note">初回保存予想（${esc(final.baseline_as_of||'')}） ${oku(final.baseline_forecast)}億円</div>`}</div>
+    <div class="v">${final.error==null?'—':`<span class="badge ${Math.abs(final.error)<=5?'b-under':'b-over'}">最新誤差 ${final.error>=0?'+':''}${fmt(final.error,1)}%</span>`}
+    ${final.baseline_error==null?'':`<div><span class="badge ${Math.abs(final.baseline_error)<=5?'b-under':'b-over'}">初回誤差 ${final.baseline_error>=0?'+':''}${fmt(final.baseline_error,1)}%</span></div>`}
     ${final.company_error==null?'':`<div class="note">会社予想比 ${final.company_error>=0?'+':''}${fmt(final.company_error,1)}%</div>`}</div></div>`:'';
   return `<div class="card"><h2>${esc(p.fy.slice(0,7))}期 四半期進捗・予想検証</h2>
     <div class="note">対象：${esc(label)}。独自年間予想 ${oku(target)}億円${ct!=null?'・会社予想 '+oku(ct)+'億円':''}。達成率は累計実績÷年間予想。</div>
