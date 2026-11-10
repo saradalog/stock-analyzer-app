@@ -56,6 +56,9 @@ thead th{color:var(--sub);font-weight:400;font-size:12px}
 .scroll{overflow-x:auto}
 .neg{color:var(--down)}
 .vrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.vrow.composite{margin:0 -6px 8px;padding:12px 8px;border:1px solid var(--acc);border-radius:10px;background:rgba(31,92,74,.06)}
+.vrow.composite .nm{font-size:14px;font-weight:700;color:var(--ink)}
+.vrow.composite .v{font-size:24px}
 .vrow:last-of-type{border:0}
 .nm{font-size:13px;color:var(--sub)}
 .v{font-size:20px;font-weight:700;text-align:right;white-space:nowrap}
@@ -278,8 +281,8 @@ function pane(){
       :`<div class="card"><h2>EV 指標</h2><div class="note">${/銀行|証券|保険|その他金融/.test(d.sector)?'金融業は有利子負債が本業の資金のため、EV指標は出していません。':'財務の明細が無いため出せません。'}</div></div>`;
     P.innerHTML=`<div class="card"><h2>理論株価（現在値 ${d.price!=null?'¥'+fmt(d.price,0):'—'}）</h2>
     ${d.fv.length?d.fv.map(([n,v,buy,gap,note])=>v==null?
-      `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'算出できません')}</div></div><div class="v">—</div></div>`:
-      `<div class="vrow"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'')}</div><div class="note">買い目安 ¥${fmt(buy,0)}</div></div>
+      `<div class="vrow${n==='総合理論株価'?' composite':''}"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'算出できません')}</div></div><div class="v">—</div></div>`:
+      `<div class="vrow${n==='総合理論株価'?' composite':''}"><div><div class="nm">${esc(n)}</div><div class="note">${esc(note||'')}</div><div class="note">買い目安 ¥${fmt(buy,0)}</div></div>
        <div class="v">¥${fmt(v,0)}<div><span class="badge ${gap>0?'b-under':'b-over'}">${gap>0?'割安':'割高'} ${gap>0?'+':''}${fmt(gap,1)}%</span></div></div></div>`).join(''):'<div class="note">株価が取得できないため算出できません</div>'}
     <div class="note">${esc(d.fv_note)}</div></div>${d.bank?bankCard(d):evCard}${retCard(d)}`;
     if(d.bank)bankChart(d,acc,sub);
@@ -469,6 +472,7 @@ function retCard(d){
 /* ---------- お気に入り一覧 ---------- */
 const gapOf=(d,name)=>{const r=(d.fv||[]).find(x=>x[0]===name);return r?r[3]:null};
 const SORTS=[
+  ['total','総合理論の乖離',d=>gapOf(d,'総合理論株価'),-1,v=>(v>0?'+':'')+fmt(v,0)+'%'],
   ['op_ev','営業利益/EV',d=>(d.ev||{}).op_ev,-1,v=>fmt(v,1)+'%'],
   ['op_ev_f','営業利益/EV(予)',d=>(d.ev||{}).op_ev_f,-1,v=>fmt(v,1)+'%'],
   ['ev_ebitda','EV/EBITDA',d=>(d.ev||{}).ev_ebitda,1,v=>fmt(v,1)+'倍'],
@@ -494,19 +498,19 @@ async function favList(){
   S.listData=got;renderList();
 }
 function renderList(){
-  const key=LS.get('sort','op_ev'),srt=SORTS.find(x=>x[0]===key)||SORTS[0],[k,label,get,dir,fmtv]=srt;
+  const key=LS.get('sort','total'),srt=SORTS.find(x=>x[0]===key)||SORTS[0],[k,label,get,dir,fmtv]=srt;
   const rows=Object.values(S.listData||{}).map(d=>({d,v:get(d)}));
   rows.sort((a,b)=>(a.v==null)-(b.v==null)||dir*((a.v??0)-(b.v??0)));
   const g=(d,n)=>{const v=gapOf(d,n);return v==null?'—':(v>0?'+':'')+fmt(v,0)+'%'};
   $('#out').innerHTML=`<div class="card"><h2>お気に入り ${rows.length}銘柄</h2>
     <div class="sortsel">${SORTS.map(x=>`<button data-k="${x[0]}" class="${x[0]===k?'on':''}">${x[1]}</button>`).join('')}</div>
-    <div class="scroll"><table class="rank"><thead><tr><th></th><th>${esc(label)}</th><th>株価</th><th>営業利益/EV</th><th>EV/EBITDA</th><th>残余利益</th><th>DCF</th><th>予想PER</th></tr></thead><tbody>
+    <div class="scroll"><table class="rank"><thead><tr><th></th><th>${esc(label)}</th><th>株価</th><th>総合理論</th><th>営業利益/EV</th><th>EV/EBITDA</th><th>残余利益</th><th>DCF</th><th>予想PER</th></tr></thead><tbody>
     ${rows.map(({d,v},n)=>`<tr data-c="${esc(d.code)}"><td>${n+1}. ${esc(d.name)}<span class="nm2">${esc(d.code)}・${esc(d.sector)}</span></td>
-      <td class="big"${cls(v)}>${v==null?'—':fmtv(v)}</td><td>${fmt(d.price,0)}</td>
+      <td class="big"${cls(v)}>${v==null?'—':fmtv(v)}</td><td>${fmt(d.price,0)}</td><td>${g(d,'総合理論株価')}</td>
       <td>${(d.ev||{}).op_ev==null?'—':fmt(d.ev.op_ev,1)+'%'+(d.ev.basis_op&&d.ev.basis_op!=='営業利益'?'*':'')}</td><td>${fmt((d.ev||{}).ev_ebitda,1)}</td>
       <td>${g(d,'残余利益モデル')}</td><td>${g(d,'DCF法')}</td><td>${fmt((d.fc||{}).per,1)}</td></tr>`).join('')}
     </tbody></table></div>
-    <div class="note">残余利益・DCF は理論株価と株価の差（プラスが割安）。営業利益/EV は大きいほど、EV/EBITDA・PER は小さいほど割安。* は営業利益が無いため税引前利益で計算。行をタップするとその銘柄を開きます。</div></div>`;
+    <div class="note">総合理論・残余利益・DCF は理論株価と株価の差（プラスが割安）。総合理論は保有銘柄だけ表示し、銘柄ごとの既存モデルを加重平均。営業利益/EV は大きいほど、EV/EBITDA・PER は小さいほど割安。* は営業利益が無いため税引前利益で計算。行をタップするとその銘柄を開きます。</div></div>`;
   document.querySelectorAll('.sortsel button').forEach(b=>b.onclick=()=>{LS.set('sort',b.dataset.k);renderList()});
   document.querySelectorAll('.rank tbody tr').forEach(t=>t.onclick=()=>show(t.dataset.c));
 }
