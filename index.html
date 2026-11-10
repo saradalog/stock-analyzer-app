@@ -331,6 +331,7 @@ function ownLabels(m){return Object.assign({},OWN_LB,m.labels||{})}
 // mode 'bridge'（既定）：前期の営業利益＋台数・値上げ・為替・個別項目の効果
 // mode 'pool'：利益（費用はマイナス）の積み上げ。営業利益＝各項目の合計＋調整額＋その年だけの個別項目
 function npRatioAt(m,t){const r=m.np_ratio;return Array.isArray(r)?+(r[t]??r[r.length-1]??0):+(r||0)}
+function npRatioAllOne(m){const r=m.np_ratio;return Array.isArray(r)?r.length>0&&r.every(x=>+x===1):+r===1}
 function ownCalc(m,sc,inp){
   const rows=[],pool=m.mode==='pool';let seg=m.segments.map(g=>g.sales),fx0=Object.assign({},m.base.fx),op=m.base.op,sh=inp.shares;
   const adjust=pool?(m.adjust!=null?m.adjust:m.base.op-seg.reduce((a,b)=>a+b,0)):0;
@@ -376,7 +377,7 @@ function ownPane(d,acc,sub){
     ${L.sales?`<tr><td>${esc(L.sales)}</td><td>${oku(m.base.sales)}</td>${rows.map(r=>`<td${cls(r.sales)}>${oku(r.sales)}</td>`).join('')}</tr>`:''}
     <tr><td>${esc(L.op)}</td><td>${oku(m.base.op)}</td>${rows.map(r=>`<td${cls(r.op)}>${oku(r.op)}</td>`).join('')}</tr>
     ${pool?'':`<tr><td>営業利益率</td><td>${fmt(m.base.op/m.base.sales*100,1)}%</td>${rows.map(r=>`<td>${fmt(r.op/r.sales*100,1)}%</td>`).join('')}</tr>`}
-    ${m.np_ratio===1&&L.op===L.np?'':`<tr><td>${esc(L.np)}</td><td>${oku(m.base.np)}</td>${rows.map(r=>`<td>${oku(r.np)}</td>`).join('')}</tr>`}
+    ${npRatioAllOne(m)&&L.op===L.np?'':`<tr><td>${esc(L.np)}</td><td>${oku(m.base.np)}</td>${rows.map(r=>`<td>${oku(r.np)}</td>`).join('')}</tr>`}
     <tr><td>EPS（円）</td><td>${fmt(m.base.np*1e6/inp.shares,0)}</td>${rows.map(r=>`<td>${fmt(r.eps,0)}</td>`).join('')}</tr>
     </tbody></table></div>
     ${c&&c.fy===first.fy&&(c.sales!=null||c.op!=null||c.np!=null)?`<table style="margin-top:10px"><thead><tr><th>${esc(c.fy.slice(0,7))}期</th><th>独自</th><th>会社予想</th><th>差</th></tr></thead><tbody>
