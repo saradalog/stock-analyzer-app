@@ -330,6 +330,7 @@ const OWN_LB={sales:'売上高',op:'営業利益',np:'純利益',vol:'台数の�
 function ownLabels(m){return Object.assign({},OWN_LB,m.labels||{})}
 // mode 'bridge'（既定）：前期の営業利益＋台数・値上げ・為替・個別項目の効果
 // mode 'pool'：利益（費用はマイナス）の積み上げ。営業利益＝各項目の合計＋調整額＋その年だけの個別項目
+function npRatioAt(m,t){const r=m.np_ratio;return Array.isArray(r)?+(r[t]??r[r.length-1]??0):+(r||0)}
 function ownCalc(m,sc,inp){
   const rows=[],pool=m.mode==='pool';let seg=m.segments.map(g=>g.sales),fx0=Object.assign({},m.base.fx),op=m.base.op,sh=inp.shares;
   const adjust=pool?(m.adjust!=null?m.adjust:m.base.op-seg.reduce((a,b)=>a+b,0)):0;
@@ -351,7 +352,7 @@ function ownCalc(m,sc,inp){
       // 前年の個別項目がなくなる分も内訳に出す
       items.push(...(t>0&&prevItems?[['前年の個別項目の反動',-prevItems]]:[]));}
     else op=op+volE+priceE+fxE+itemsE;
-    const np=op*m.np_ratio;sh=sh*(1+((m.share_change||[])[t]||0));
+    const np=op*npRatioAt(m,t);sh=sh*(1+((m.share_change||[])[t]||0));
     rows.push({fy:m.years[t],sales,op,np,eps:np*1e6/sh,volE,priceE,fxE,items,itemsE,fx,segs:nseg,prev_op:base_op});
     seg=nseg;fx0=fx;
   });
