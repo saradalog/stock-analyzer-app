@@ -19,7 +19,7 @@
 ## データの受け取り方
 
 - 設定画面（⚙）に入れた Apps Script の URL（`…/exec`）と合言葉で `fetch` する。URLと合言葉は端末の localStorage（`ma_cfg`）にだけ保存し、コードに書かない。
-- `?action=list` → 全銘柄の `[コード, 名前, 業種, 市場]`、`?action=get&code=7208` → 1銘柄のJSON。
+- `?action=list` → タブ「app」にある銘柄（保有銘柄＋追加で分析した銘柄。全上場銘柄ではない）の `[コード, 名前, 業種, 市場]`、`?action=get&code=7208` → 1銘柄のJSON。
 - JSON の形は `saradalog/analysis` の `AGENTS.md`（「タブ app の JSON」）に書いてある。キー名を変えるときはデータ側と同時に直す。
 - 設定が無いときは `DEMO`（7208・8088 の試作データ）で動く。
 
